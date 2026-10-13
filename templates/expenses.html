@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Expenses Management — SmartMoney{% endblock %}
+{% block page_title %}Expenses Tracker{% endblock %}
+{% block page_subtitle %}Log purchases, filter by payment method and monitor spending categories{% endblock %}
+
+{% block content %}
+
+<!-- ================= Header Metrics ================= -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+  <div class="stat-card rose">
+    <div class="stat-header">
+      <span class="stat-label">Month's Outflow</span>
+      <div class="stat-icon rose"><i data-lucide="arrow-up-right"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(summary.total_month or 0) }}</div>
+    <div class="stat-subtext">Total spent this calendar month</div>
+  </div>
+
+  <div class="stat-card indigo">
+    <div class="stat-header">
+      <span class="stat-label">Total Transactions</span>
+      <div class="stat-icon indigo"><i data-lucide="receipt"></i></div>
+    </div>
+    <div class="stat-value">{{ summary.count_month or 0 }}</div>
+    <div class="stat-subtext">Transactions recorded</div>
+  </div>
+
+  <div class="stat-card emerald">
+    <div class="stat-header">
+      <span class="stat-label">Average Transaction</span>
+      <div class="stat-icon emerald"><i data-lucide="calculator"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(summary.avg_expense or 0) }}</div>
+    <div class="stat-subtext">Per expense ticket</div>
+  </div>
+</div>
+
+<!-- ================= Search & Filter Toolbar ================= -->
+<div class="filter-bar" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+  <!-- Row 1: Search, Category, Payment Method, Sort, Add Expense -->
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; flex: 1;">
+      <!-- Search Input -->
+      <div style="position: relative; min-width: 220px; flex: 1;">
+        <input type="text" id="expenseSearch" class="form-control" placeholder="Search description or category..." style="padding-left: 2.3rem;">
+        <i data-lucide="search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);"></i>
+      </div>
+
+      <!-- Category Filter -->
+      <select id="expenseCategoryFilter" class="input-date" style="padding: 0.65rem 0.85rem;">
+        <option value="all">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Payment Method Filter -->
+      <select id="expensePaymentFilter" class="input-date" style="padding: 0.65rem 0.85rem;">
+        <option value="all">All Methods (Cash, UPI, Cards)</option>
+        {% for pm in payment_methods %}
+          <option value="{{ pm }}">{{ pm }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Sort Filter -->
+      <select id="expenseSortFilter" class="input-date" style="padding: 0.65rem 0.85rem;">
+        <option value="date_desc">Date: Newest First</option>
+        <option value="date_asc">Date: Oldest First</option>
+        <option value="amount_desc">Amount: Highest First</option>
+        <option value="amount_asc">Amount: Lowest First</option>
+      </select>
+    </div>
+
+    <!-- Add Expense Trigger Button -->
+    <button class="btn btn-primary btn-sm" onclick="openModal('addExpenseModal')" style="padding: 0.65rem 1.2rem;">
+      <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+      <span>Log Expense</span>
+    </button>
+  </div>
+
+  <!-- Row 2: Date Filters & Summary Counters -->
+  <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 0.75rem; flex-wrap: wrap;">
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">From:</span>
+      <input type="date" id="expenseStartDate" class="input-date">
+      <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">To:</span>
+      <input type="date" id="expenseEndDate" class="input-date">
+      <button class="btn btn-secondary btn-sm" onclick="fetchExpenses()">Apply Dates</button>
+      <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">
+      Total Shown: <span id="filteredTotalAmount" style="color: var(--rose-500); font-variant-numeric: tabular-nums;">{{ currency_symbol }}0</span>
+      <span style="color: var(--text-muted); font-size: 0.78rem;">(<span id="filteredCount">0</span> entries)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Expenses Table ================= -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="tx-table" id="expensesTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Payment Method</th>
+          <th>Amount</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="expensesTableBody">
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            Loading expenses...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= Log Expense Modal ================= -->
+<div class="modal-backdrop" id="addExpenseModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Record New Expense</div>
+      <button class="modal-close" onclick="closeModal('addExpenseModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form id="addExpenseForm" onsubmit="handleCreateExpense(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Amount ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="0.01" name="amount" class="form-control" placeholder="0.00" required autofocus>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select name="category" class="form-control" required>
+              {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method *</label>
+            <select name="payment_method" class="form-control" required>
+              {% for pm in payment_methods %}
+                <option value="{{ pm }}">{{ pm }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input type="date" name="date" class="form-control" value="{{ current_date }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description *</label>
+            <input type="text" name="description" class="form-control" placeholder="e.g. Grocery store, Metro top-up" required>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addExpenseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Expense</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= Edit Expense Modal ================= -->
+<div class="modal-backdrop" id="editExpenseModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Edit Expense</div>
+      <button class="modal-close" onclick="closeModal('editExpenseModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form id="editExpenseForm" onsubmit="handleUpdateExpense(event)">
+      <input type="hidden" id="editExpenseId">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Amount ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="0.01" name="amount" id="editExpenseAmount" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select name="category" id="editExpenseCategory" class="form-control" required>
+              {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method *</label>
+            <select name="payment_method" id="editExpensePaymentMethod" class="form-control" required>
+              {% for pm in payment_methods %}
+                <option value="{{ pm }}">{{ pm }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input type="date" name="date" id="editExpenseDate" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description *</label>
+            <input type="text" name="description" id="editExpenseDescription" class="form-control" required>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editExpenseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Expense</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = {{ currency_symbol|tojson }};
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchExpenses();
+
+  // Attach dynamic filter listeners
+  document.getElementById('expenseSearch').addEventListener('input', debounce(fetchExpenses, 300));
+  document.getElementById('expenseCategoryFilter').addEventListener('change', fetchExpenses);
+  document.getElementById('expensePaymentFilter').addEventListener('change', fetchExpenses);
+  document.getElementById('expenseSortFilter').addEventListener('change', fetchExpenses);
+});
+
+function debounce(func, delay) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
+function resetFilters() {
+  document.getElementById('expenseSearch').value = '';
+  document.getElementById('expenseCategoryFilter').value = 'all';
+  document.getElementById('expensePaymentFilter').value = 'all';
+  document.getElementById('expenseSortFilter').value = 'date_desc';
+  document.getElementById('expenseStartDate').value = '';
+  document.getElementById('expenseEndDate').value = '';
+  fetchExpenses();
+}
+
+async function fetchExpenses() {
+  const search = document.getElementById('expenseSearch').value;
+  const category = document.getElementById('expenseCategoryFilter').value;
+  const paymentMethod = document.getElementById('expensePaymentFilter').value;
+  const sortBy = document.getElementById('expenseSortFilter').value;
+  const startDate = document.getElementById('expenseStartDate').value;
+  const endDate = document.getElementById('expenseEndDate').value;
+
+  const params = new URLSearchParams({
+    search: search,
+    category: category,
+    payment_method: paymentMethod,
+    sort_by: sortBy
+  });
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+
+  try {
+    const res = await fetch(`/api/expenses?${params.toString()}`);
+    const data = await res.json();
+    
+    if (data.success) {
+      renderExpenseRows(data.expenses);
+      document.getElementById('filteredTotalAmount').innerText = `${CURRENCY}${data.total_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('filteredCount').innerText = data.count;
+    }
+  } catch (err) {
+    console.error('Error fetching expenses:', err);
+  }
+}
+
+function renderExpenseRows(expenses) {
+  const tbody = document.getElementById('expensesTableBody');
+  if (!expenses || expenses.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+          No matching expenses found for the selected filters.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = expenses.map(exp => `
+    <tr>
+      <td style="font-size: 0.82rem; font-weight: 500; color: var(--text-muted);">${exp.date}</td>
+      <td>
+        <span class="tx-category-badge">
+          <i data-lucide="tag" style="width: 12px; height: 12px;"></i>
+          ${escapeHtml(exp.category)}
+        </span>
+      </td>
+      <td style="font-weight: 600;">${escapeHtml(exp.description)}</td>
+      <td>
+        <span class="badge-pill info">
+          ${escapeHtml(exp.payment_method)}
+        </span>
+      </td>
+      <td>
+        <span class="amount-expense">-${CURRENCY}${Number(exp.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+      </td>
+      <td style="text-align: right;">
+        <div style="display: inline-flex; gap: 0.4rem;">
+          <button class="btn btn-secondary btn-icon" onclick="openEditModal(${exp.id}, '${escapeHtml(exp.category)}', ${exp.amount}, '${exp.date}', '${escapeHtml(exp.payment_method)}', '${escapeHtml(exp.description)}')" title="Edit">
+            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+          </button>
+          <button class="btn btn-danger btn-icon" onclick="deleteExpense(${exp.id})" title="Delete">
+            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function handleCreateExpense(e) {
+  e.preventDefault();
+  const form = document.getElementById('addExpenseForm');
+  const formData = new FormData(form);
+
+  const res = await postFormJson('/api/expenses/add', formData);
+  if (res.success) {
+    closeModal('addExpenseModal');
+    form.reset();
+    showToast(res.message, 'success');
+    fetchExpenses();
+  } else {
+    showToast(res.message, 'danger');
+  }
+}
+
+function openEditModal(id, category, amount, dateVal, paymentMethod, description) {
+  document.getElementById('editExpenseId').value = id;
+  document.getElementById('editExpenseAmount').value = amount;
+  document.getElementById('editExpenseCategory').value = category;
+  document.getElementById('editExpensePaymentMethod').value = paymentMethod;
+  document.getElementById('editExpenseDate').value = dateVal;
+  document.getElementById('editExpenseDescription').value = description;
+  openModal('editExpenseModal');
+}
+
+async function handleUpdateExpense(e) {
+  e.preventDefault();
+  const id = document.getElementById('editExpenseId').value;
+  const form = document.getElementById('editExpenseForm');
+  const formData = new FormData(form);
+
+  const res = await postFormJson(`/api/expenses/edit/${id}`, formData);
+  if (res.success) {
+    closeModal('editExpenseModal');
+    showToast(res.message, 'success');
+    fetchExpenses();
+  } else {
+    showToast(res.message, 'danger');
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Are you sure you want to delete this expense record?')) return;
+  const res = await apiPost(`/api/expenses/delete/${id}`);
+  if (res.success) {
+    showToast(res.message, 'success');
+    fetchExpenses();
+  } else {
+    showToast(res.message, 'danger');
+  }
+}
+</script>
+{% endblock %}

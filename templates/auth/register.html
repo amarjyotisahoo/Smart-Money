@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account — SmartMoney{% endblock %}
+
+{% block content %}
+<div style="min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem;">
+  <div style="width: 100%; max-width: 480px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); padding: 2.5rem 2rem;">
+    
+    <!-- Logo & Header -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div style="width: 50px; height: 50px; border-radius: 14px; background: linear-gradient(135deg, var(--emerald-500), var(--emerald-700)); display: inline-flex; align-items: center; justify-content: center; color: white; margin-bottom: 1rem; box-shadow: 0 4px 16px var(--emerald-glow);">
+        <i data-lucide="user-plus" style="width: 28px; height: 28px;"></i>
+      </div>
+      <h2 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;">Create your account</h2>
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 0.35rem;">Start tracking expenses, controlling budgets and saving for your 3 goals</p>
+    </div>
+
+    <!-- Register Form -->
+    <form action="{{ url_for('register') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      
+      <div class="form-group">
+        <label class="form-label">Full Name or Username *</label>
+        <input type="text" name="username" class="form-control" placeholder="e.g. Priyanshu Sharma" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" name="email" class="form-control" placeholder="you@domain.com" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Password (min 6 chars) *</label>
+          <input type="password" name="password" class="form-control" placeholder="••••••••" minlength="6" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password *</label>
+          <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" minlength="6" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Primary Currency Symbol</label>
+        <select name="currency" class="form-control">
+          <option value="₹" selected>₹ — Indian Rupee (INR)</option>
+          <option value="$">$ — US Dollar (USD)</option>
+          <option value="€">€ — Euro (EUR)</option>
+          <option value="£">£ — British Pound (GBP)</option>
+          <option value="AED">AED — UAE Dirham</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem; margin-bottom: 1rem;">
+        Get Started with SmartMoney
+      </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+      Already have an account? 
+      <a href="{{ url_for('login') }}" style="color: var(--emerald-500); font-weight: 700;">Sign In</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

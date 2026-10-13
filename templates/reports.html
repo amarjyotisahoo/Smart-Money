@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Financial Reports & Exports — SmartMoney{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block page_subtitle %}12-month trend analysis, month-over-month variances and CSV ledger exports{% endblock %}
+
+{% block content %}
+
+<!-- ================= CSV Export Toolbar ================= -->
+<div class="filter-bar">
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <i data-lucide="file-spreadsheet" style="width: 20px; height: 20px; color: var(--emerald-500);"></i>
+    <span style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">Export Financial Data:</span>
+  </div>
+
+  <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+    <a href="{{ url_for('export_expenses_csv') }}" class="btn btn-secondary btn-sm">
+      <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+      <span>Expenses CSV</span>
+    </a>
+    <a href="{{ url_for('export_incomes_csv') }}" class="btn btn-secondary btn-sm">
+      <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+      <span>Incomes CSV</span>
+    </a>
+    <a href="{{ url_for('export_all_csv') }}" class="btn btn-primary btn-sm">
+      <i data-lucide="database" style="width: 14px; height: 14px;"></i>
+      <span>Complete Financial Ledger CSV</span>
+    </a>
+  </div>
+</div>
+
+<!-- ================= 12-Month Multi-Metric Trend Chart ================= -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="trending-up" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+      <span>12-Month Macro Trend: Income vs Expenses vs Savings</span>
+    </div>
+    <span class="badge-pill info">Annual Perspective</span>
+  </div>
+  <div class="card-body" style="height: 360px; position: relative;">
+    <canvas id="macroTrendChart"></canvas>
+  </div>
+</div>
+
+<!-- ================= Month-over-Month Comparison Table ================= -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="git-compare" style="width: 18px; height: 18px; color: var(--indigo-500);"></i>
+      <span>Month-over-Month Spending Comparison ({{ current_month }} vs {{ prev_month }})</span>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>{{ current_month }} (Current)</th>
+          <th>{{ prev_month }} (Previous)</th>
+          <th>Absolute Difference</th>
+          <th>Percentage Change</th>
+          <th>Trend Direction</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mom in mom_comparison %}
+        <tr>
+          <td style="font-weight: 700;">
+            <span class="tx-category-badge">{{ mom.category }}</span>
+          </td>
+          <td style="font-weight: 600;">{{ currency_symbol }}{{ "{:,.0f}".format(mom.current_month) }}</td>
+          <td style="color: var(--text-muted);">{{ currency_symbol }}{{ "{:,.0f}".format(mom.prev_month) }}</td>
+          <td style="font-weight: 700; color: {% if mom.difference > 0 %}var(--rose-500){% elif mom.difference < 0 %}var(--emerald-500){% else %}var(--text-muted){% endif %};">
+            {% if mom.difference > 0 %}+{% endif %}{{ currency_symbol }}{{ "{:,.0f}".format(mom.difference) }}
+          </td>
+          <td>
+            <span class="badge-pill {% if mom.difference > 0 %}danger{% elif mom.difference < 0 %}success{% else %}info{% endif %}">
+              {% if mom.pct_change > 0 %}+{% endif %}{{ mom.pct_change }}%
+            </span>
+          </td>
+          <td>
+            {% if mom.difference > 0 %}
+              <span style="color: var(--rose-500); font-size: 0.82rem; display: flex; align-items: center; gap: 0.25rem;">
+                <i data-lucide="trending-up" style="width: 14px; height: 14px;"></i> Increased
+              </span>
+            {% elif mom.difference < 0 %}
+              <span style="color: var(--emerald-500); font-size: 0.82rem; display: flex; align-items: center; gap: 0.25rem;">
+                <i data-lucide="trending-down" style="width: 14px; height: 14px;"></i> Decreased (Saved)
+              </span>
+            {% else %}
+              <span style="color: var(--text-muted); font-size: 0.82rem;">Flat</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            No comparative records available between {{ current_month }} and {{ prev_month }}.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= Payment Channels Distribution ================= -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="credit-card" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+      <span>Payment Method Breakdown for {{ current_month }}</span>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Payment Method</th>
+          <th>Total Outflow</th>
+          <th>Transaction Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pm in payment_methods_summary %}
+        <tr>
+          <td style="font-weight: 700;">
+            <span class="badge-pill info">{{ pm.payment_method }}</span>
+          </td>
+          <td style="font-weight: 700;">{{ currency_symbol }}{{ "{:,.2f}".format(pm.total) }}</td>
+          <td>{{ pm.count }} payments</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            No payments logged this month.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const labels = {{ trend_labels|tojson }};
+  const incomes = {{ income_data|tojson }};
+  const expenses = {{ expense_data|tojson }};
+  const savings = {{ savings_data|tojson }};
+  const currency = {{ currency_symbol|tojson }};
+
+  initReportsTrendChart('macroTrendChart', labels, incomes, expenses, savings, currency);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Three Savings Goals — SmartMoney{% endblock %}
+{% block page_title %}Three Savings Goals{% endblock %}
+{% block page_subtitle %}Disciplined goal tracking with required monthly contributions & zero double-counting{% endblock %}
+
+{% block content %}
+
+<!-- ================= Overview Metrics ================= -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+  <div class="stat-card emerald">
+    <div class="stat-header">
+      <span class="stat-label">Total Saved</span>
+      <div class="stat-icon emerald"><i data-lucide="piggy-bank"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(total_savings_accumulated) }}</div>
+    <div class="stat-subtext">Across active goals</div>
+  </div>
+
+  <div class="stat-card indigo">
+    <div class="stat-header">
+      <span class="stat-label">Total Target</span>
+      <div class="stat-icon indigo"><i data-lucide="target"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(total_target_needed) }}</div>
+    <div class="stat-subtext">Combined target capital</div>
+  </div>
+
+  <div class="stat-card amber">
+    <div class="stat-header">
+      <span class="stat-label">Overall Progress</span>
+      <div class="stat-icon amber"><i data-lucide="percent"></i></div>
+    </div>
+    <div class="stat-value">{{ overall_progress }}%</div>
+    <div class="stat-subtext">Accumulated completion rate</div>
+  </div>
+
+  <div class="stat-card emerald">
+    <div class="stat-header">
+      <span class="stat-label">Active Slots</span>
+      <div class="stat-icon emerald"><i data-lucide="layers"></i></div>
+    </div>
+    <div class="stat-value">{{ active_count }} / 3</div>
+    <div class="stat-subtext">
+      {% if active_count < 3 %}
+        <span class="badge-pill success">{{ 3 - active_count }} slot(s) available</span>
+      {% else %}
+        <span class="badge-pill warning">Max 3 goals active</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================= Header Actions & Rules Banner ================= -->
+<div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+  <div style="display: flex; align-items: center; gap: 0.85rem;">
+    <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--emerald-50); color: var(--emerald-600); display: flex; align-items: center; justify-content: center;">
+      <i data-lucide="info" style="width: 20px; height: 20px;"></i>
+    </div>
+    <div>
+      <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">The Rule of Three</div>
+      <div style="font-size: 0.82rem; color: var(--text-muted);">
+        SmartMoney enforces exactly up to three active goals to promote financial focus and prevent dilution of savings capital.
+      </div>
+    </div>
+  </div>
+
+  {% if active_count < 3 %}
+    <button class="btn btn-primary btn-sm" onclick="openModal('createGoalModal')">
+      <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+      <span>New Goal ({{ 3 - active_count }} left)</span>
+    </button>
+  {% else %}
+    <button class="btn btn-secondary btn-sm" disabled style="opacity: 0.6; cursor: not-allowed;" title="All 3 slots in use">
+      <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+      <span>3 of 3 Slots Active</span>
+    </button>
+  {% endif %}
+</div>
+
+<!-- ================= Active Goals Grid ================= -->
+<div class="goals-container" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+  {% for goal in active_goals %}
+  <div class="goal-card" style="border-top: 4px solid var(--emerald-500);">
+    <div class="goal-top">
+      <div class="goal-title-wrap">
+        <div class="goal-icon-badge">
+          <i data-lucide="{{ goal.category_icon or 'target' }}" style="width: 22px; height: 22px;"></i>
+        </div>
+        <div>
+          <div class="goal-name">{{ goal.name }}</div>
+          <div class="goal-deadline">
+            <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i>
+            Target Date: {{ goal.deadline }}
+          </div>
+        </div>
+      </div>
+      <span class="badge-pill {% if goal.progress_pct >= 100 %}success{% elif goal.progress_pct >= 50 %}info{% else %}warning{% endif %}">
+        {{ goal.progress_pct }}%
+      </span>
+    </div>
+
+    <!-- Amount Display -->
+    <div class="goal-amounts">
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Saved so far:</span>
+        <span class="goal-current">{{ currency_symbol }}{{ "{:,.0f}".format(goal.current_amount) }}</span>
+      </div>
+      <div style="text-align: right;">
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Target goal:</span>
+        <span style="font-weight: 700; color: var(--text-secondary); font-size: 1.1rem;">{{ currency_symbol }}{{ "{:,.0f}".format(goal.target_amount) }}</span>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container" style="height: 12px; margin-top: 0.5rem; margin-bottom: 1.25rem;">
+      <div class="progress-bar" style="width: {{ goal.progress_pct }}%;"></div>
+    </div>
+
+    <!-- Calculated Metrics Breakdown -->
+    <div class="goal-metrics-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; padding: 0.85rem;">
+      <div class="metric-item">
+        <span class="metric-label">Remaining</span>
+        <span class="metric-val" style="color: var(--rose-500); font-size: 0.9rem;">
+          {{ currency_symbol }}{{ "{:,.0f}".format(goal.remaining) }}
+        </span>
+      </div>
+
+      <div class="metric-item">
+        <span class="metric-label">Suggested/Mo</span>
+        <span class="metric-val" style="color: var(--emerald-500); font-size: 0.9rem;">
+          {{ currency_symbol }}{{ "{:,.0f}".format(goal.suggested_monthly) }}
+        </span>
+      </div>
+
+      <div class="metric-item">
+        <span class="metric-label">Timeframe</span>
+        <span class="metric-val" style="font-size: 0.9rem;">
+          {{ goal.days_left }} days ({{ goal.months_left }}m)
+        </span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="goal-actions" style="margin-top: 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="openDepositModal({{ goal.id }}, '{{ goal.name|escape }}')">
+        <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i>
+        <span>Deposit Savings</span>
+      </button>
+
+      <button class="btn btn-secondary btn-icon" onclick="openEditGoalModal({{ goal.id }}, '{{ goal.name|escape }}', {{ goal.target_amount }}, '{{ goal.deadline }}', '{{ goal.category_icon }}')" title="Edit Goal Details">
+        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+      </button>
+
+      <button class="btn btn-secondary btn-icon" onclick="toggleGoalCompleted({{ goal.id }})" title="Mark as Completed">
+        <i data-lucide="check" style="width: 14px; height: 14px; color: var(--emerald-500);"></i>
+      </button>
+
+      <button class="btn btn-danger btn-icon" onclick="deleteGoal({{ goal.id }})" title="Delete Goal">
+        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+      </button>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="grid-column: 1 / -1; padding: 3.5rem; text-align: center;">
+    <div class="empty-icon"><i data-lucide="target"></i></div>
+    <div class="empty-title">You Have No Active Savings Goals</div>
+    <p class="empty-desc">Create up to 3 goals (e.g. "Buy a bike", "Buy a laptop", "Build an emergency fund"). SmartMoney will guide you with month-by-month contribution formulas.</p>
+    <button class="btn btn-primary" onclick="openModal('createGoalModal')">
+      <i data-lucide="plus"></i> Create Goal
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ================= Contribution History Table ================= -->
+<div class="card" style="margin-top: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="history" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
+      <span>Recent Savings Contributions (Isolated Transfers)</span>
+    </div>
+    <span class="badge-pill success">
+      <i data-lucide="shield" style="width: 12px; height: 12px;"></i>
+      Zero double-counting
+    </span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Goal Allocated</th>
+          <th>Contribution Amount</th>
+          <th>Notes / Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contributions %}
+        <tr>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">{{ c.date }}</td>
+          <td>
+            <span class="badge-pill info">
+              <i data-lucide="target" style="width: 12px; height: 12px;"></i>
+              {{ c.goal_name }}
+            </span>
+          </td>
+          <td>
+            <span class="amount-income">+{{ currency_symbol }}{{ "{:,.2f}".format(c.amount) }}</span>
+          </td>
+          <td style="color: var(--text-secondary);">{{ c.notes or 'Savings transfer' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            No contributions made yet. Add money to any goal to view history here.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= Completed Goals Archive (if any) ================= -->
+{% if completed_goals %}
+<div class="card" style="margin-top: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="award" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+      <span>Completed Goals Archive</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Goal Name</th>
+          <th>Target Reached</th>
+          <th>Deadline</th>
+          <th>Status</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cg in completed_goals %}
+        <tr>
+          <td style="font-weight: 700;">{{ cg.name }}</td>
+          <td><span class="amount-income">{{ currency_symbol }}{{ "{:,.0f}".format(cg.current_amount) }}</span></td>
+          <td style="font-size: 0.82rem; color: var(--text-muted);">{{ cg.deadline }}</td>
+          <td><span class="badge-pill success">Achieved & Archived</span></td>
+          <td style="text-align: right;">
+            <button class="btn btn-secondary btn-sm" onclick="toggleGoalCompleted({{ cg.id }})">
+              Reactivate
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ================= Create Goal Modal ================= -->
+<div class="modal-backdrop" id="createGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Create New Savings Goal</div>
+      <button class="modal-close" onclick="closeModal('createGoalModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form action="{{ url_for('add_goal') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Name *</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. Buy a bike, Laptop, Emergency Fund" required autofocus>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Amount ({{ currency_symbol }}) *</label>
+            <input type="number" step="1" min="1" name="target_amount" class="form-control" placeholder="85000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Seed Deposit ({{ currency_symbol }})</label>
+            <input type="number" step="1" min="0" name="initial_savings" class="form-control" value="0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Deadline *</label>
+            <input type="date" name="deadline" class="form-control" value="{{ today_date }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category Icon</label>
+            <select name="category_icon" class="form-control">
+              <option value="target">Target (Default)</option>
+              <option value="bike">Bike</option>
+              <option value="laptop">Laptop</option>
+              <option value="shield-check">Emergency Fund</option>
+              <option value="car">Vehicle</option>
+              <option value="home">Home</option>
+              <option value="plane">Travel</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('createGoalModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= Edit Goal Modal ================= -->
+<div class="modal-backdrop" id="editGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Edit Savings Goal</div>
+      <button class="modal-close" onclick="closeModal('editGoalModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form id="editGoalForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Name *</label>
+          <input type="text" name="name" id="editGoalName" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Amount ({{ currency_symbol }}) *</label>
+            <input type="number" step="1" min="1" name="target_amount" id="editGoalTarget" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Deadline *</label>
+            <input type="date" name="deadline" id="editGoalDeadline" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <select name="category_icon" id="editGoalIcon" class="form-control">
+            <option value="target">Target</option>
+            <option value="bike">Bike</option>
+            <option value="laptop">Laptop</option>
+            <option value="shield-check">Emergency Fund</option>
+            <option value="car">Vehicle</option>
+            <option value="home">Home</option>
+            <option value="plane">Travel</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editGoalModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= Deposit Modal ================= -->
+<div class="modal-backdrop" id="goalDepositModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="depositModalTitle">Add Savings Contribution</div>
+      <button class="modal-close" onclick="closeModal('goalDepositModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form id="goalDepositForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="modal-body">
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          <i data-lucide="shield-check" style="width: 14px; height: 14px; color: var(--emerald-500); vertical-align: middle;"></i>
+          Savings transfers are recorded exclusively into your goal account without being counted as an expense.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Contribution Amount ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="1" name="amount" class="form-control" placeholder="5000.00" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deposit Date *</label>
+          <input type="date" name="date" class="form-control" value="{{ today_date }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Note / Reference</label>
+          <input type="text" name="notes" class="form-control" placeholder="e.g. Monthly allocation from savings">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('goalDepositModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Contribution</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openDepositModal(goalId, goalName) {
+  document.getElementById('depositModalTitle').innerText = `Contribute to "${goalName}"`;
+  document.getElementById('goalDepositForm').action = `/api/goals/contribute/${goalId}`;
+  openModal('goalDepositModal');
+}
+
+function openEditGoalModal(id, name, target, deadline, icon) {
+  document.getElementById('editGoalForm').action = `/api/goals/edit/${id}`;
+  document.getElementById('editGoalName').value = name;
+  document.getElementById('editGoalTarget').value = target;
+  document.getElementById('editGoalDeadline').value = deadline;
+  document.getElementById('editGoalIcon').value = icon || 'target';
+  openModal('editGoalModal');
+}
+
+async function deleteGoal(id) {
+  if (!confirm('Are you sure you want to delete this savings goal? Recorded contributions will be removed.')) return;
+  const res = await apiPost(`/api/goals/delete/${id}`);
+  if (res.success) {
+    location.reload();
+  } else {
+    showToast(res.message, 'danger');
+  }
+}
+
+async function toggleGoalCompleted(id) {
+  const res = await apiPost(`/api/goals/toggle-complete/${id}`);
+  if (res.success) {
+    location.reload();
+  } else {
+    showToast(res.message, 'danger');
+  }
+}
+</script>
+{% endblock %}

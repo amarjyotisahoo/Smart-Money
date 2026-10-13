@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Settings & Preferences — SmartMoney{% endblock %}
+{% block page_title %}Settings & Preferences{% endblock %}
+{% block page_subtitle %}Manage currency symbols, profile credentials and sample data{% endblock %}
+
+{% block content %}
+
+<div style="max-width: 800px; display: flex; flex-direction: column; gap: 2rem;">
+
+  <!-- Currency & Display Settings -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i data-lucide="coins" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+        <span>Currency & Financial Format</span>
+      </div>
+    </div>
+    <form action="{{ url_for('settings_page') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="update_profile">
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Primary Display Currency</label>
+          <select name="currency" class="form-control" style="max-width: 360px;">
+            <option value="₹" {% if user.currency == '₹' %}selected{% endif %}>₹ — Indian Rupee (INR)</option>
+            <option value="$" {% if user.currency == '$' %}selected{% endif %}>$ — US Dollar (USD)</option>
+            <option value="€" {% if user.currency == '€' %}selected{% endif %}>€ — Euro (EUR)</option>
+            <option value="£" {% if user.currency == '£' %}selected{% endif %}>£ — British Pound (GBP)</option>
+            <option value="AED" {% if user.currency == 'AED' %}selected{% endif %}>AED — UAE Dirham</option>
+          </select>
+          <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; display: block;">
+            Used consistently across all stat cards, budgets, and savings goals.
+          </span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Save Currency</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Security & Password -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i data-lucide="lock" style="width: 18px; height: 18px; color: var(--indigo-500);"></i>
+        <span>Security & Password</span>
+      </div>
+    </div>
+    <form action="{{ url_for('settings_page') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="change_password">
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="old_password" class="form-control" placeholder="••••••••" required style="max-width: 360px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password (min 6 characters)</label>
+          <input type="password" name="new_password" class="form-control" placeholder="••••••••" minlength="6" required style="max-width: 360px;">
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm">Update Password</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Data Refresh / Demo Data -->
+  <div class="card" style="border-left: 4px solid var(--amber-500);">
+    <div class="card-header">
+      <div class="card-title">
+        <i data-lucide="refresh-cw" style="width: 18px; height: 18px; color: var(--amber-500);"></i>
+        <span>Demo Data Reset Tool</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+        Need to test or evaluate with comprehensive sample data? Re-seed this account with realistic salaries, categorized expenses, monthly budgets, and exactly three active savings goals.
+      </p>
+      <form action="{{ url_for('settings_page') }}" method="POST" onsubmit="return confirm('This will reload the rich demo dataset for your account. Continue?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="reset_demo_data">
+        <button type="submit" class="btn btn-secondary btn-sm" style="border-color: var(--amber-500); color: var(--amber-600);">
+          <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
+          <span>Re-seed Rich Demo Dataset</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

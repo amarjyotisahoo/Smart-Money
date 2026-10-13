@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}SmartMoney{% endblock %} — Personal Finance & Savings Tracker</title>
+  
+  <!-- Favicon / App Icon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  <!-- Chart.js & Lucide Icons CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <div class="app-layout">
+    {% if current_user %}
+    <!-- ================= Sidebar Navigation ================= -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <a href="{{ url_for('dashboard') }}" class="brand-logo">
+          <div class="brand-icon">
+            <i data-lucide="wallet-cards" style="width: 22px; height: 22px;"></i>
+          </div>
+          <span>Smart<span style="color: var(--emerald-500);">Money</span></span>
+          <span class="brand-badge">PRO</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Overview</div>
+        <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <div class="nav-section-title">Transactions</div>
+        <a href="{{ url_for('expenses_page') }}" class="nav-item {% if request.endpoint == 'expenses_page' %}active{% endif %}">
+          <i data-lucide="arrow-up-right"></i>
+          <span>Expenses</span>
+        </a>
+        <a href="{{ url_for('incomes_page') }}" class="nav-item {% if request.endpoint == 'incomes_page' %}active{% endif %}">
+          <i data-lucide="arrow-down-left"></i>
+          <span>Income</span>
+        </a>
+
+        <div class="nav-section-title">Planning</div>
+        <a href="{{ url_for('goals_page') }}" class="nav-item {% if request.endpoint == 'goals_page' %}active{% endif %}">
+          <i data-lucide="target"></i>
+          <span>Savings Goals</span>
+        </a>
+        <a href="{{ url_for('budgets_page') }}" class="nav-item {% if request.endpoint == 'budgets_page' %}active{% endif %}">
+          <i data-lucide="pie-chart"></i>
+          <span>Budgets & Limits</span>
+        </a>
+
+        <div class="nav-section-title">Analytics</div>
+        <a href="{{ url_for('insights_page') }}" class="nav-item {% if request.endpoint == 'insights_page' %}active{% endif %}">
+          <i data-lucide="sparkles"></i>
+          <span>Smart Insights</span>
+        </a>
+        <a href="{{ url_for('reports_page') }}" class="nav-item {% if request.endpoint == 'reports_page' %}active{% endif %}">
+          <i data-lucide="bar-chart-3"></i>
+          <span>Reports & CSV</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar">{{ current_user.username[0]|upper }}</div>
+          <div class="user-info">
+            <div class="user-name">{{ current_user.username }}</div>
+            <div class="user-sub">{{ current_user.currency }} • Active</div>
+          </div>
+          <a href="{{ url_for('settings_page') }}" class="theme-toggle-btn btn-sm" title="Settings" style="width: 32px; height: 32px;">
+            <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
+          </a>
+          <a href="{{ url_for('logout') }}" class="theme-toggle-btn btn-sm" title="Logout" style="width: 32px; height: 32px; color: var(--rose-500);">
+            <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
+          </a>
+        </div>
+      </div>
+    </aside>
+    {% endif %}
+
+    <!-- ================= Main App Container ================= -->
+    <main class="app-main" {% if not current_user %}style="margin-left: 0;"{% endif %}>
+      {% if current_user %}
+      <header class="app-header">
+        <div class="header-left">
+          <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle menu">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="page-title-box">
+            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            <p>{% block page_subtitle %}Personal finance, budget control & goal tracking{% endblock %}</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <!-- Quick New Expense Trigger -->
+          <button class="btn btn-primary btn-sm" onclick="openModal('quickExpenseModal')">
+            <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i>
+            <span>Add Expense</span>
+          </button>
+
+          <!-- Theme Mode Switcher -->
+          <button class="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
+            <i data-lucide="moon"></i>
+          </button>
+        </div>
+      </header>
+      {% endif %}
+
+      <!-- Flash Notifications Banner -->
+      <div style="padding: 0 2rem; margin-top: 1rem;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="toast {{ category }} alert-auto-dismiss" style="position: relative; margin-bottom: 0.75rem; width: 100%; max-width: 600px;">
+                <i data-lucide="info" style="width: 18px; height: 18px;"></i>
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      <!-- Page Specific Content -->
+      <div class="content-body">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <!-- ================= Quick Add Expense Modal ================= -->
+  {% if current_user %}
+  <div class="modal-backdrop" id="quickExpenseModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">Record Expense</div>
+        <button class="modal-close" onclick="closeModal('quickExpenseModal')">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form action="{{ url_for('add_expense') }}" method="POST" id="quickExpenseForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Amount ({{ currency_symbol }}) *</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" placeholder="0.00" required autofocus>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <select name="category" class="form-control" required>
+                <option value="Food">Food</option>
+                <option value="Rent">Rent</option>
+                <option value="Transport">Transport</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Education">Education</option>
+                <option value="Bills">Bills</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Subscriptions">Subscriptions</option>
+                <option value="Travel">Travel</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Method *</label>
+              <select name="payment_method" class="form-control" required>
+                <option value="UPI">UPI</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input type="date" name="date" class="form-control" value="{{ now.strftime('%Y-%m-%d') }}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description *</label>
+              <input type="text" name="description" class="form-control" placeholder="e.g. Grocery haul, Metro pass" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('quickExpenseModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

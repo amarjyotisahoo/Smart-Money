@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — SmartMoney{% endblock %}
+{% block page_title %}Financial Dashboard{% endblock %}
+{% block page_subtitle %}Comprehensive view of your monthly cash flow, budget limits and 3 savings goals{% endblock %}
+
+{% block content %}
+
+<!-- ================= 1. Date Filter Toolbar ================= -->
+<div class="filter-bar">
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <i data-lucide="calendar" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">Period:</span>
+    <div class="filter-pills">
+      <a href="{{ url_for('dashboard', period='today') }}" class="filter-pill {% if filter_type == 'today' %}active{% endif %}">Today</a>
+      <a href="{{ url_for('dashboard', period='this_week') }}" class="filter-pill {% if filter_type == 'this_week' %}active{% endif %}">This Week</a>
+      <a href="{{ url_for('dashboard', period='this_month') }}" class="filter-pill {% if filter_type == 'this_month' %}active{% endif %}">This Month</a>
+    </div>
+  </div>
+
+  <!-- Custom Date Filter Form -->
+  <form action="{{ url_for('dashboard') }}" method="GET" class="custom-date-inputs">
+    <input type="hidden" name="period" value="custom">
+    <span style="font-size: 0.8rem; color: var(--text-muted);">From</span>
+    <input type="date" name="start_date" value="{{ start_date }}" class="input-date" required>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">To</span>
+    <input type="date" name="end_date" value="{{ end_date }}" class="input-date" required>
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+  </form>
+</div>
+
+<!-- ================= 2. Top Stats Grid ================= -->
+<div class="stats-grid">
+  <!-- Monthly Income -->
+  <div class="stat-card emerald">
+    <div class="stat-header">
+      <span class="stat-label">Monthly Income</span>
+      <div class="stat-icon emerald"><i data-lucide="arrow-down-left"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(total_monthly_income) }}</div>
+    <div class="stat-subtext">
+      {% if total_expected_income > 0 %}
+        <span class="badge-pill warning">+{{ currency_symbol }}{{ "{:,.0f}".format(total_expected_income) }} expected</span>
+      {% else %}
+        <span class="badge-pill success">100% received</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Monthly Expenses -->
+  <div class="stat-card rose">
+    <div class="stat-header">
+      <span class="stat-label">Monthly Expenses</span>
+      <div class="stat-icon rose"><i data-lucide="arrow-up-right"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(total_monthly_expenses) }}</div>
+    <div class="stat-subtext">
+      {% if monthly_budget > 0 %}
+        <span>{{ "{:.0f}".format((total_monthly_expenses / monthly_budget) * 100) }}% of {{ currency_symbol }}{{ "{:,.0f}".format(monthly_budget) }} budget</span>
+      {% else %}
+        <span>Tracked outgoings</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Available Balance -->
+  <div class="stat-card indigo">
+    <div class="stat-header">
+      <span class="stat-label">Available Balance</span>
+      <div class="stat-icon indigo"><i data-lucide="wallet"></i></div>
+    </div>
+    <div class="stat-value" style="color: {% if available_balance < 0 %}var(--rose-500){% else %}var(--emerald-500){% endif %};">
+      {{ currency_symbol }}{{ "{:,.0f}".format(available_balance) }}
+    </div>
+    <div class="stat-subtext">
+      <span>Net cash surplus after goals</span>
+    </div>
+  </div>
+
+  <!-- Total Savings Across 3 Goals -->
+  <div class="stat-card emerald">
+    <div class="stat-header">
+      <span class="stat-label">Total Savings</span>
+      <div class="stat-icon emerald"><i data-lucide="piggy-bank"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(total_savings) }}</div>
+    <div class="stat-subtext">
+      <span class="badge-pill info">{{ goals|length }}/3 Active Goals</span>
+    </div>
+  </div>
+
+  <!-- Monthly Savings Rate -->
+  <div class="stat-card amber">
+    <div class="stat-header">
+      <span class="stat-label">Savings Rate</span>
+      <div class="stat-icon amber"><i data-lucide="percent"></i></div>
+    </div>
+    <div class="stat-value">{{ savings_rate }}%</div>
+    <div class="stat-subtext">
+      {% if savings_rate >= 20 %}
+        <span class="badge-pill success">On Track (≥20%)</span>
+      {% else %}
+        <span class="badge-pill warning">Aim for 20%</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Daily Spending Limit -->
+  <div class="stat-card indigo">
+    <div class="stat-header">
+      <span class="stat-label">Daily Spending Limit</span>
+      <div class="stat-icon indigo"><i data-lucide="compass"></i></div>
+    </div>
+    <div class="stat-value">{{ currency_symbol }}{{ "{:,.0f}".format(daily_spending_limit) }}</div>
+    <div class="stat-subtext">
+      <span>For next {{ remaining_days }} days left</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 3. Active Three Savings Goals ================= -->
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+    <div>
+      <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; display: flex; align-items: center; gap: 0.5rem;">
+        <i data-lucide="target" style="width: 20px; height: 20px; color: var(--emerald-500);"></i>
+        <span>Three Savings Goals</span>
+      </h2>
+      <p style="font-size: 0.82rem; color: var(--text-muted);">Dedicated goal tracking without double-counting transfers as expenses</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <span class="badge-pill info" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">
+        {{ goals|length }} of 3 Slots Active
+      </span>
+      {% if goals|length < 3 %}
+        <button class="btn btn-secondary btn-sm" onclick="openModal('addGoalModal')">
+          <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+          <span>New Goal</span>
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="goals-container">
+    {% for goal in goals %}
+    <div class="goal-card">
+      <div class="goal-top">
+        <div class="goal-title-wrap">
+          <div class="goal-icon-badge">
+            <i data-lucide="{{ goal.category_icon or 'target' }}" style="width: 20px; height: 20px;"></i>
+          </div>
+          <div>
+            <div class="goal-name">{{ goal.name }}</div>
+            <div class="goal-deadline">Deadline: {{ goal.deadline }} ({{ goal.days_left }}d left)</div>
+          </div>
+        </div>
+        <span class="badge-pill {% if goal.progress_pct >= 100 %}success{% elif goal.progress_pct >= 50 %}info{% else %}warning{% endif %}">
+          {{ goal.progress_pct }}%
+        </span>
+      </div>
+
+      <div class="goal-amounts">
+        <div class="goal-current">{{ currency_symbol }}{{ "{:,.0f}".format(goal.current_amount) }}</div>
+        <div class="goal-target">Target: {{ currency_symbol }}{{ "{:,.0f}".format(goal.target_amount) }}</div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-container">
+        <div class="progress-bar" style="width: {{ goal.progress_pct }}%;"></div>
+      </div>
+
+      <div class="goal-metrics-grid">
+        <div class="metric-item">
+          <span class="metric-label">Remaining</span>
+          <span class="metric-val" style="color: var(--text-secondary);">{{ currency_symbol }}{{ "{:,.0f}".format(goal.remaining) }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Suggested Monthly</span>
+          <span class="metric-val" style="color: var(--emerald-500);">{{ currency_symbol }}{{ "{:,.0f}".format(goal.suggested_monthly) }}/mo</span>
+        </div>
+      </div>
+
+      <div class="goal-actions">
+        <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="openDepositModal({{ goal.id }}, '{{ goal.name|escape }}')">
+          <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i>
+          <span>Add Savings</span>
+        </button>
+        <a href="{{ url_for('goals_page') }}" class="btn btn-secondary btn-sm" title="View Goal Details">
+          <i data-lucide="external-link" style="width: 14px; height: 14px;"></i>
+        </a>
+      </div>
+    </div>
+    {% else %}
+    <div class="card" style="grid-column: 1 / -1; padding: 2.5rem; text-align: center;">
+      <div class="empty-icon"><i data-lucide="target"></i></div>
+      <div class="empty-title">No Active Savings Goals Yet</div>
+      <p class="empty-desc">Create your 3 focal goals (e.g. "Buy a bike", "Buy a laptop", "Emergency Fund") and let SmartMoney calculate your required contributions.</p>
+      <div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addGoalModal')">
+          <i data-lucide="plus"></i> Create First Goal
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ================= 4. Charts Row: Income vs Expenses & Category Breakdown ================= -->
+<div class="dashboard-grid-2">
+  <!-- Income vs Expenses Bar Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i data-lucide="trending-up" style="color: var(--emerald-500); width: 18px; height: 18px;"></i>
+        <span>Income vs Expenses (Last 6 Months)</span>
+      </div>
+      <a href="{{ url_for('reports_page') }}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">Full Report</a>
+    </div>
+    <div class="card-body" style="height: 320px; position: relative;">
+      <canvas id="incomeExpenseChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Expense Breakdown by Category Donut Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i data-lucide="pie-chart" style="color: var(--indigo-500); width: 18px; height: 18px;"></i>
+        <span>Spending by Category</span>
+      </div>
+      <span class="badge-pill info">{{ chart_categories|length }} Categories</span>
+    </div>
+    <div class="card-body" style="height: 320px; position: relative;">
+      {% if chart_categories %}
+        <canvas id="categoryDonutChart"></canvas>
+      {% else %}
+        <div class="empty-state" style="padding: 3rem 1rem;">
+          <i data-lucide="inbox" style="width: 40px; height: 40px; color: var(--text-muted); margin-bottom: 0.5rem;"></i>
+          <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">No expenses recorded for this filter</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================= 5. Recent Transactions Feed ================= -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="clock" style="color: var(--text-muted); width: 18px; height: 18px;"></i>
+      <span>Recent Financial Activity</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="{{ url_for('expenses_page') }}" class="btn btn-secondary btn-sm">All Expenses</a>
+      <a href="{{ url_for('incomes_page') }}" class="btn btn-secondary btn-sm">All Incomes</a>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Category / Source</th>
+          <th>Description</th>
+          <th>Method / Status</th>
+          <th style="text-align: right;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in recent_transactions %}
+        <tr>
+          <td style="font-weight: 500; font-size: 0.82rem; color: var(--text-muted);">{{ tx.date }}</td>
+          <td>
+            {% if tx.type == 'income' %}
+              <span class="badge-pill success"><i data-lucide="arrow-down-left" style="width: 12px; height: 12px;"></i> Income</span>
+            {% else %}
+              <span class="badge-pill danger"><i data-lucide="arrow-up-right" style="width: 12px; height: 12px;"></i> Expense</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="tx-category-badge">{{ tx.category }}</span>
+          </td>
+          <td style="font-weight: 500;">{{ tx.description }}</td>
+          <td>
+            <span class="badge-pill {% if tx.payment_method == 'expected' %}warning{% else %}info{% endif %}">
+              {{ tx.payment_method }}
+            </span>
+          </td>
+          <td style="text-align: right;">
+            {% if tx.type == 'income' %}
+              <span class="amount-income">+{{ currency_symbol }}{{ "{:,.2f}".format(tx.amount) }}</span>
+            {% else %}
+              <span class="amount-expense">-{{ currency_symbol }}{{ "{:,.2f}".format(tx.amount) }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            No recent transactions found. Click "+ Add Expense" above to start!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= Deposit Modal for Goals ================= -->
+<div class="modal-backdrop" id="goalDepositModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="depositModalTitle">Add Savings Contribution</div>
+      <button class="modal-close" onclick="closeModal('goalDepositModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form id="goalDepositForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="modal-body">
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          <i data-lucide="shield-check" style="width: 14px; height: 14px; color: var(--emerald-500); vertical-align: middle;"></i>
+          Savings contributions are kept separated from day-to-day expenses to prevent double-counting.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Contribution Amount ({{ currency_symbol }}) *</label>
+          <input type="number" step="0.01" min="1" name="amount" class="form-control" placeholder="0.00" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deposit Date *</label>
+          <input type="date" name="date" class="form-control" value="{{ now.strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Note / Reference</label>
+          <input type="text" name="notes" class="form-control" placeholder="e.g. Monthly transfer from checking">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('goalDepositModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Contribution</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= Add Goal Modal ================= -->
+<div class="modal-backdrop" id="addGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Create Savings Goal (Max 3 Active)</div>
+      <button class="modal-close" onclick="closeModal('addGoalModal')"><i data-lucide="x"></i></button>
+    </div>
+    <form action="{{ url_for('add_goal') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Name *</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. Buy a bike, Laptop, Emergency Fund" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Amount ({{ currency_symbol }}) *</label>
+            <input type="number" step="1" min="1" name="target_amount" class="form-control" placeholder="50000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Savings ({{ currency_symbol }})</label>
+            <input type="number" step="1" min="0" name="initial_savings" class="form-control" value="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Deadline *</label>
+            <input type="date" name="deadline" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Icon</label>
+            <select name="category_icon" class="form-control">
+              <option value="target">Target (Default)</option>
+              <option value="bike">Bike</option>
+              <option value="laptop">Laptop</option>
+              <option value="shield-check">Emergency Fund</option>
+              <option value="car">Vehicle / Car</option>
+              <option value="home">Home / Property</option>
+              <option value="plane">Travel / Vacation</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addGoalModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize Chart.js Bar Chart
+  const months = {{ months_labels|tojson }};
+  const incomes = {{ incomes_trend|tojson }};
+  const expenses = {{ expenses_trend|tojson }};
+  const currency = {{ currency_symbol|tojson }};
+
+  initIncomeExpenseChart('incomeExpenseChart', months, incomes, expenses, currency);
+
+  // Initialize Category Donut Chart
+  const categories = {{ chart_categories|tojson }};
+  const categoryTotals = {{ chart_category_totals|tojson }};
+  if (categories && categories.length > 0) {
+    initCategoryChart('categoryDonutChart', categories, categoryTotals, currency);
+  }
+});
+
+function openDepositModal(goalId, goalName) {
+  document.getElementById('depositModalTitle').innerText = `Contribute to "${goalName}"`;
+  document.getElementById('goalDepositForm').action = `/api/goals/contribute/${goalId}`;
+  openModal('goalDepositModal');
+}
+</script>
+{% endblock %}

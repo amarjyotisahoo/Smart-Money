@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Insights — SmartMoney{% endblock %}
+{% block page_title %}Smart Financial Insights{% endblock %}
+{% block page_subtitle %}Algorithmic analysis of your spending habits, variances, burn rate & goal feasibility{% endblock %}
+
+{% block content %}
+
+<!-- Disclaimer Banner -->
+<div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.75rem; display: flex; align-items: center; gap: 0.85rem;">
+  <i data-lucide="sparkles" style="width: 22px; height: 22px; color: var(--indigo-500); flex-shrink: 0;"></i>
+  <div style="font-size: 0.84rem; color: var(--text-secondary);">
+    <strong>Data-Grounded Intelligence:</strong> All insights are strictly calculated from your recorded transactions and savings records. Projected figures (such as month-end forecasts) are clearly labeled as estimates.
+  </div>
+</div>
+
+<!-- ================= Insights Cards Feed ================= -->
+<div class="insights-list">
+  {% for item in insights %}
+  <div class="insight-card {{ item.severity }}">
+    <div class="insight-icon-box">
+      <i data-lucide="{{ item.icon }}" style="width: 22px; height: 22px;"></i>
+    </div>
+    <div class="insight-content">
+      <div class="insight-head">
+        <span style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--text-muted);">
+          {{ item.category }}
+        </span>
+        <span class="badge-pill {{ item.severity }}">{{ item.badge }}</span>
+      </div>
+      <div class="insight-title">{{ item.title }}</div>
+      <div class="insight-desc">{{ item.text }}</div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="padding: 3.5rem; text-align: center;">
+    <div class="empty-icon"><i data-lucide="sparkles"></i></div>
+    <div class="empty-title">Generating Your First Insights...</div>
+    <p class="empty-desc">Record a few more expenses and incomes this month to activate SmartMoney's automated financial intelligence engine.</p>
+    <div>
+      <button class="btn btn-primary" onclick="openModal('quickExpenseModal')">
+        <i data-lucide="plus"></i> Add an Expense
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ================= Financial Health Checklist ================= -->
+<div class="card" style="margin-top: 2.5rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--emerald-500);"></i>
+      <span>Fintech Best Practices Checklist</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+      <div style="display: flex; gap: 0.75rem;">
+        <i data-lucide="check-circle-2" style="width: 20px; height: 20px; color: var(--emerald-500); flex-shrink: 0;"></i>
+        <div>
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary);">The 50/30/20 Guideline</div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Aim to allocate 50% of income to essentials, 30% to lifestyle, and 20% to your 3 active savings goals.</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <i data-lucide="check-circle-2" style="width: 20px; height: 20px; color: var(--emerald-500); flex-shrink: 0;"></i>
+        <div>
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary);">Buffer Before Deadlines</div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Keep monthly goal contributions consistent. Front-loading contributions reduces stress near the deadline date.</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <i data-lucide="check-circle-2" style="width: 20px; height: 20px; color: var(--emerald-500); flex-shrink: 0;"></i>
+        <div>
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary);">Daily Burn-Rate Discipline</div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Checking your suggested daily limit before discretionary shopping keeps end-of-month cashflow positive.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
